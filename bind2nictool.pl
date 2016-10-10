@@ -33,7 +33,7 @@ my %config = (
 	debug_soap_response			=> 0
 );
 
-my $config_file = '/etc/bind2nictool.cfg';
+my $config_file = '/etc/bind2nictool.conf';
 GetOptions("configfile=s" => \$config_file);
 
 if (! -f $config_file) {
