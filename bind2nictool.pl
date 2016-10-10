@@ -15,6 +15,8 @@ use Sys::Hostname;
 use Unix::PID;
 use Getopt::Long;
 
+use Data::Dumper;
+
 # Set Config Defaults
 my %config = (
 	server 							=> 'localhost',
@@ -173,6 +175,7 @@ foreach my $local_zone (@local_zones) {
 		);
 		unless ($nt_new_zone->{'nt_zone_id'}) {
 			print STDERR "Failed to create new zone $origin\n";
+			print Dumper($nt_new_zone);
 			next;
 		}
 		$nt_zone_id = $nt_new_zone->{'nt_zone_id'};
@@ -211,7 +214,7 @@ foreach my $local_zone (@local_zones) {
 	}
 	
 	# Add Records
-	my @record_types = ('a', 'cname', 'mx', 'ptr', 'txt');
+	my @record_types = ('a', 'cname', 'mx', 'ptr', 'txt', 'srv');
 	foreach my $record_type (@record_types) {
 		foreach my $record (@{$zoneparse->$record_type()}) {
 			# Default params for all record types
@@ -231,6 +234,11 @@ foreach my $local_zone (@local_zones) {
 			} elsif($record_type eq 'mx') {
 				$api_params{address} = $record->{'host'};
 				$api_params{weight}  = $record->{'priority'};
+			} elsif($record_type eq 'srv') {
+				$api_params{address} = $record->{'host'};
+				$api_params{priority} = $record->{'priority'};
+				$api_params{weight} = $record->{'weight'};
+				$api_params{other} = $record->{'port'};
 			} else {
 				$api_params{address} = $record->{'host'};
 			}
@@ -239,6 +247,8 @@ foreach my $local_zone (@local_zones) {
 			my $nt_new_zone_record = $nt->send_request(%api_params);
 			unless ($nt_new_zone_record->{'nt_zone_record_id'}) {
 				print STDERR "Failed to create new zone record for $origin: $nt_new_zone_record->{'error_desc'} $nt_new_zone_record->{'msg'}\n";
+				print Dumper($nt_new_zone_record);
+				$soa->{'serial'}--;
 			}
 		}
 	}
