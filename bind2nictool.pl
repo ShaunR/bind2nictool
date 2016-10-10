@@ -118,7 +118,7 @@ do {
 if ($config{'remove_nonexistant_zones'}) {
 	for my $remote_zone (keys %remote_zones) {
 		unless (-f $config{'bind_zones_path'} . "/" . $remote_zone . ".db") {
-			print "Removing old zone from NicTool for " . $remote_zone . "\n";
+			print "Removing old zone from NicTool for " . $remote_zone . "\n" if $config{'verbose'};
 			my $nt_delete_zones = $nt->send_request(
 				action				=> 'delete_zones',
 				nt_user_session	=> $nt_user->{'nt_user_session'},
@@ -127,7 +127,7 @@ if ($config{'remove_nonexistant_zones'}) {
 			if ($nt_delete_zones->{'error_msg'} ne 'OK') {
 				print STDERR "Failed to remove zone for " . $remote_zone . ": " . $nt_delete_zones->{'error_msg'} . "( " . $nt_delete_zones->{'error_code'} . " )\n";
 			} else {
-				print "Successfuly removed zone for " . $remote_zone . "\n";
+				print "Successfuly removed zone for " . $remote_zone . "\n" if $config{'verbose'};
 			}
 		}
 	}
