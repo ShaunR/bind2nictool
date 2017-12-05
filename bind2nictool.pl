@@ -2,9 +2,14 @@
 
 # Script to sync local bind zones and records with NicTool based on serial.
 #
-# Version 1.0
+# Version 1.1
 # 
 # Written By Shaun Reitan <shaun.reitan@ndchost.com> ( www.NDCHost.com )
+#
+# Change LOG
+#
+# 2017-07-31 - Fixed issue were exporter would not export if the nictool server had zero zones.
+#
 
 use strict;
 use warnings;
@@ -94,23 +99,27 @@ do {
 	}
 	$total_pages = $nt_group_zones->{'total_pages'};
 
-	my @zone_ids;
-	for my $nt_group_zone (@{$nt_group_zones->{'zones'}}) {
-		push @zone_ids, $nt_group_zone->{'nt_zone_id'};
-	}
+	if ($nt_group_zones->{'total'} > 0) {
+		my @zone_ids;
+		for my $nt_group_zone (@{$nt_group_zones->{'zones'}}) {
+			push @zone_ids, $nt_group_zone->{'nt_zone_id'};
+		}
 
-	my $nt_zone_list = $nt->send_request(
-		action				=> 'get_zone_list',
-		nt_user_session	=>	$nt_user->{'nt_user_session'},
-		zone_list			=> join(",", @zone_ids)
-	);
-	if ($nt_zone_list->{'error_msg'} ne 'OK') {
-		print STDERR "Error: $nt_zone_list->{'error_msg'} ( $nt_zone_list->{'error_code'} )\n";
-		exit(1);
-	}
-
-	for my $nt_zone (@{$nt_zone_list->{'zones'}}) {
-		$remote_zones{$nt_zone->{'zone'}} = $nt_zone;
+		my $nt_zone_list = $nt->send_request(
+			action				=> 'get_zone_list',
+			nt_user_session	=>	$nt_user->{'nt_user_session'},
+			zone_list			=> join(",", @zone_ids)
+		);
+		if ($nt_zone_list->{'error_msg'} ne 'OK') {
+			print STDERR "Error: $nt_zone_list->{'error_msg'} ( $nt_zone_list->{'error_code'} )\n";
+			exit(1);
+		}
+	
+		for my $nt_zone (@{$nt_zone_list->{'zones'}}) {
+			$remote_zones{$nt_zone->{'zone'}} = $nt_zone;
+		}
+	} else {
+		print "No zones on nictool server\n";
 	}
 } while($page < $total_pages);
 
@@ -178,10 +187,19 @@ foreach my $local_zone (@local_zones) {
 			print Dumper($nt_new_zone);
 			next;
 		}
-		$nt_zone_id = $nt_new_zone->{'nt_zone_id'};
+		
+		my $nt_zone = $nt->send_request(
+			action			=> 'get_zone',
+			nt_user_session		=> $nt_user->{'nt_user_session'},
+			nt_zone_id		=> $nt_new_zone->{'nt_zone_id'}
+		);
+		unless ($nt_zone->{'nt_zone_id'}) {
+			print Dumper($nt_zone);
+			print STDERR " Failed to retreive newly created zone data for $origin\n";
+			next;
+		}
+		$remote_zones{$nt_zone->{'zone'}} = $nt_zone;
 	} else {
-		$nt_zone_id = $remote_zones{$origin}->{'nt_zone_id'};
-
 		# If serial matches and force_update is not set, then skip.
 		if ($soa->{'serial'} eq $remote_zones{$origin}->{'serial'} && !$config{'force_update'}) {
 			next;
@@ -194,7 +212,7 @@ foreach my $local_zone (@local_zones) {
 		my $nt_zone_records = $nt->send_request(
 			action				=> 'get_zone_records',
 			nt_user_session	=> $nt_user->{'nt_user_session'},
-			nt_zone_id			=> $nt_zone_id,
+			nt_zone_id			=> $remote_zones{$origin}->{'nt_zone_id'},
 			limit					=> $config{'zone_records_limit'},
 			page					=> 1
 		);
@@ -222,7 +240,7 @@ foreach my $local_zone (@local_zones) {
 				action					=> 'new_zone_record',
 				nt_user_session		=> $nt_user->{'nt_user_session'},
 				nt_zone_record_id		=> '',
-				nt_zone_id				=> $nt_zone_id,
+				nt_zone_id				=> $remote_zones{$origin}->{'nt_zone_id'},
 				name						=> $record->{'name'},
 				ttl						=> $record->{'ttl'},
 				type						=> $record_type
@@ -272,7 +290,7 @@ foreach my $local_zone (@local_zones) {
 		minimum				=> $soa->{'minimumTTL'}
 	);
 	unless ($nt_edit_zone->{'nt_zone_id'}) {
-		print STDERR "Failed to edit zone $origin\n";
+		print STDERR "Failed to edit zone $origin: $nt_edit_zone->{'error_desc'} ( $nt_edit_zone->{'error_msg'} )\n";
 		next;
 	}
 }
