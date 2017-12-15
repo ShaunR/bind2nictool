@@ -183,8 +183,7 @@ foreach my $local_zone (@local_zones) {
 			minimum				=> $soa->{'minimumTTL'}
 		);
 		unless ($nt_new_zone->{'nt_zone_id'}) {
-			print STDERR "Failed to create new zone $origin\n";
-			print Dumper($nt_new_zone);
+			print STDERR "Failed to create zone $origin: $nt_new_zone->{'error_msg'}\n";
 			next;
 		}
 		
