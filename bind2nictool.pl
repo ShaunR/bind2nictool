@@ -60,7 +60,7 @@ $config_file = '/etc/bind2nictool.conf' unless $config_file;
 }
 
 # Read Config
-print "Using config file at $config_file\n" if $verbose > 1;
+print "Using config file at $config_file\n" if $verbose && $verbose gt 1;
 open FH, "<$config_file" or die "Failed to open /etc/$config_file for reading: $!";
 while(<FH>) {
 	tr/\n\r//d;
