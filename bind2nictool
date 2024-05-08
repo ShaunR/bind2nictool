@@ -61,7 +61,7 @@ $config_file = '/etc/bind2nictool.conf' unless $config_file;
 
 # Read Config
 print "Using config file at $config_file\n" if $verbose && $verbose gt 1;
-open FH, "<$config_file" or die "Failed to open /etc/$config_file for reading: $!";
+open FH, "<$config_file" or die "Failed to open $config_file, $!";
 while(<FH>) {
 	tr/\n\r//d;
     # Skip lines that start with # (comments)
@@ -271,6 +271,8 @@ foreach my $local_zone (@local_zones) {
 			print STDERR "Error: $nt_zone_records->{'error_msg'} ( $nt_zone_records->{'error_code'} )\n";
 		}
 
+        last if $nt_zone_records->{'total'} < 1;
+
 		for my $nt_zone_record (@{$nt_zone_records->{'records'}}) {
 			print 'Removing record id: ' . $nt_zone_record->{'nt_zone_record_id'} . ' from zone id: ' . $remote_zones{$origin}->{'nt_zone_id'} ."\n" if $verbose;
 			$nt->send_request(
@@ -279,7 +281,6 @@ foreach my $local_zone (@local_zones) {
 				nt_zone_record_id => $nt_zone_record->{'nt_zone_record_id'}
 			);
 		}
-		last if $nt_zone_records->{'total'} < 1;
     }
 	
 	# Add Records
@@ -326,7 +327,9 @@ foreach my $local_zone (@local_zones) {
     
 		# Create Record
 		my $nt_new_zone_record = $nt->send_request(%api_params);
-		unless ($nt_new_zone_record->{'nt_zone_record_id'}) {
+        if ($nt_new_zone_record->{'nt_zone_record_id'}) {
+            print 'Created record id: ' . $nt_new_zone_record->{'nt_zone_record_id'} . ' in zone id: ' . $remote_zones{$origin}->{'nt_zone_id'} ."\n" if $verbose;
+        } else {
             print STDERR 'Error creating zone record line #' . $zonefile->line . ' from zone ' . $origin . "\n";
             print STDERR $nt_new_zone_record->{'error_desc'} . ', ' . $nt_new_zone_record->{'error_msg'} . "\n";
 		}
